@@ -62,4 +62,6 @@ dependencies {
 
     coreLibraryDesugaring libs.desugar.jdk.libs
     implementation libs.splashscreen
+    compileOnly libs.lombok
+    annotationProcessor libs.lombok
 }

@@ -1,4 +1,6 @@
-<resources>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name">"SD卡监视器"</string>
     <string name="enable_monitor">启用监视器</string>
+    <string name="request_post_notification">"请允许应用“&lt;b&gt;<xliff:g id="name">%1$s</xliff:g>"&lt;/b&gt;"”发送通知。"</string>
+    <string name="request_system_alert_window">"请允许应用“&lt;b&gt;<xliff:g id="name">%1$s</xliff:g>&lt;/b&gt;”显示在其他应用的上层。"</string>
 </resources>
