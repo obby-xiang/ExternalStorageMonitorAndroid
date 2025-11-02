@@ -61,4 +61,5 @@ dependencies {
     androidTestImplementation libs.espresso.core
 
     coreLibraryDesugaring libs.desugar.jdk.libs
+    implementation libs.splashscreen
 }

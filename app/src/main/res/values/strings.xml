@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">"SD卡监视器"</string>
+    <string name="enable_monitor">启用监视器</string>
 </resources>
