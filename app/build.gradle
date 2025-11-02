@@ -2,6 +2,17 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
+def signingProperties = new Properties()
+def signingPropertiesFile = rootProject.file("signing.properties")
+if (signingPropertiesFile.exists()) {
+    signingProperties.load(new FileInputStream(signingPropertiesFile))
+} else {
+    signingProperties['storeFile'] = property('signing.storeFile')
+    signingProperties['storePassword'] = property('signing.storePassword')
+    signingProperties['keyAlias'] = property('signing.keyAlias')
+    signingProperties['keyPassword'] = property('signing.keyPassword')
+}
+
 android {
     namespace 'com.obby.android.externalstoragemonitor'
     compileSdk 35
@@ -16,8 +27,18 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        release {
+            storeFile rootProject.file(signingProperties['storeFile'])
+            storePassword signingProperties['storePassword']
+            keyAlias signingProperties['keyAlias']
+            keyPassword signingProperties['keyPassword']
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
