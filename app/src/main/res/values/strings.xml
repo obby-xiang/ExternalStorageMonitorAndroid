@@ -3,4 +3,9 @@
     <string name="enable_monitor">启用监视器</string>
     <string name="request_post_notification">"请允许应用“&lt;b&gt;<xliff:g id="name">%1$s</xliff:g>"&lt;/b&gt;"”发送通知。"</string>
     <string name="request_system_alert_window">"请允许应用“&lt;b&gt;<xliff:g id="name">%1$s</xliff:g>&lt;/b&gt;”显示在其他应用的上层。"</string>
+    <string name="service_notification_channel_name">"监视器服务"</string>
+    <string name="service_notification_title">"正在监视SD卡…"</string>
+    <string name="service_stop_notification_action">"停止监视"</string>
+    <string name="external_storage_mounted">"已检测到SD卡"</string>
+    <string name="external_storage_unmounted">"未检测到SD卡"</string>
 </resources>
