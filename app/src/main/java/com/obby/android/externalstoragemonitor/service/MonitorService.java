@@ -21,15 +21,19 @@ import android.os.RemoteException;
 import android.os.SystemClock;
 import android.os.storage.StorageManager;
 import android.util.Log;
+import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.view.ContextThemeWrapper;
 import androidx.core.app.NotificationChannelCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.app.ServiceCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.obby.android.externalstoragemonitor.MainActivity;
 import com.obby.android.externalstoragemonitor.R;
 import com.obby.android.externalstoragemonitor.support.Constants;
@@ -49,13 +53,21 @@ public class MonitorService extends Service {
 
     private static final int NOTIFICATION_ID = 1;
 
+    private static final long ALERT_INTERVAL_MS = Duration.ofMinutes(1L).toMillis();
+
     @Nullable
     private Monitor mMonitor;
 
     @NonNull
     private String mExternalStorageState = Constants.EXTERNAL_STORAGE_STATE_UNKNOWN;
 
+    @Nullable
+    private AlertDialog mExternalStorageUnmountedDialog;
+
     private final String mTag = "MonitorService@" + hashCode();
+
+    @NonNull
+    private final Handler mMainHandler = new Handler(Looper.getMainLooper());
 
     @NonNull
     private final List<Messenger> mClientMessengers = new CopyOnWriteArrayList<>();
@@ -83,6 +95,9 @@ public class MonitorService extends Service {
             }
         }
     };
+
+    @NonNull
+    private final Runnable mShowExternalStorageUnmountedDialogRunnable = this::showExternalStorageUnmountedDialog;
 
     @Override
     public void onCreate() {
@@ -151,6 +166,8 @@ public class MonitorService extends Service {
         Log.i(mTag, "stopService: stop service");
 
         mExternalStorageState = Constants.EXTERNAL_STORAGE_STATE_UNKNOWN;
+        mMainHandler.removeCallbacksAndMessages(null);
+        dismissExternalStorageUnmountedDialog();
 
         if (mMonitor != null) {
             mMonitor.stop();
@@ -168,6 +185,46 @@ public class MonitorService extends Service {
         mExternalStorageState = state;
         mClientMessengers.forEach(this::notifyExternalStorageStateChanged);
         NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, buildNotification());
+
+        mMainHandler.removeCallbacks(mShowExternalStorageUnmountedDialogRunnable);
+
+        if (Constants.EXTERNAL_STORAGE_STATE_UNMOUNTED.equals(mExternalStorageState)) {
+            showExternalStorageUnmountedDialog();
+        } else {
+            dismissExternalStorageUnmountedDialog();
+        }
+    }
+
+    @SuppressWarnings("DataFlowIssue")
+    private void showExternalStorageUnmountedDialog() {
+        if (mExternalStorageUnmountedDialog == null) {
+            final Context themedContext = new ContextThemeWrapper(this, R.style.AppTheme);
+            mExternalStorageUnmountedDialog = new MaterialAlertDialogBuilder(themedContext)
+                .setMessage(R.string.external_storage_unmounted_alert)
+                .setPositiveButton(R.string.got_it, null)
+                .setCancelable(false)
+                .setOnDismissListener(dialog -> {
+                    mExternalStorageUnmountedDialog = null;
+                    if (Constants.EXTERNAL_STORAGE_STATE_UNMOUNTED.equals(mExternalStorageState)) {
+                        mMainHandler.postDelayed(mShowExternalStorageUnmountedDialogRunnable, ALERT_INTERVAL_MS);
+                    }
+                })
+                .create();
+            mExternalStorageUnmountedDialog.getWindow().setType(Build.VERSION.SDK_INT < Build.VERSION_CODES.O
+                ? WindowManager.LayoutParams.TYPE_SYSTEM_ALERT : WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
+            mExternalStorageUnmountedDialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
+        }
+
+        if (!mExternalStorageUnmountedDialog.isShowing()) {
+            mExternalStorageUnmountedDialog.show();
+        }
+    }
+
+    private void dismissExternalStorageUnmountedDialog() {
+        if (mExternalStorageUnmountedDialog != null) {
+            mExternalStorageUnmountedDialog.dismiss();
+            mExternalStorageUnmountedDialog = null;
+        }
     }
 
     private void registerServiceClient(@NonNull final Messenger messenger) {
@@ -239,9 +296,6 @@ public class MonitorService extends Service {
             .setContentTitle(getString(R.string.service_notification_title))
             .setContentText(contentText)
             .setContentIntent(PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class),
-                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT))
-            .addAction(0, getString(R.string.service_stop_notification_action), PendingIntent.getBroadcast(this, 0,
-                new Intent(Constants.ACTION_STOP_SERVICE).setPackage(getPackageName()),
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setOngoing(true)
@@ -337,7 +391,7 @@ public class MonitorService extends Service {
 
             mIsRunning = false;
             mContext.unregisterReceiver(mBroadcastReceiver);
-            mMainHandler.removeCallbacks(mTickRunnable);
+            mMainHandler.removeCallbacksAndMessages(null);
         }
 
         private void tick() {
