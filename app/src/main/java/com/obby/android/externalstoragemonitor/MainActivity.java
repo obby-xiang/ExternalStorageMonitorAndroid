@@ -155,6 +155,10 @@ public class MainActivity extends AppCompatActivity {
         });
 
         updateMonitorView();
+
+        if (Preferences.get().isMonitorEnabled()){
+            ContextCompat.startForegroundService(this, new Intent(this, MonitorService.class));
+        }
     }
 
     @Override
