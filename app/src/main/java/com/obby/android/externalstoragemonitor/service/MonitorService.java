@@ -10,6 +10,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ServiceInfo;
+import android.media.AudioAttributes;
+import android.media.SoundPool;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
@@ -60,6 +62,11 @@ public class MonitorService extends Service {
 
     @NonNull
     private String mExternalStorageState = Constants.EXTERNAL_STORAGE_STATE_UNKNOWN;
+
+    @Nullable
+    private SoundPool mExternalStorageUnmountedSoundPool;
+
+    private int mExternalStorageUnmountedSoundId = 0;
 
     @Nullable
     private AlertDialog mExternalStorageUnmountedDialog;
@@ -166,12 +173,18 @@ public class MonitorService extends Service {
         Log.i(mTag, "stopService: stop service");
 
         mExternalStorageState = Constants.EXTERNAL_STORAGE_STATE_UNKNOWN;
+        mExternalStorageUnmountedSoundId = 0;
         mMainHandler.removeCallbacksAndMessages(null);
         dismissExternalStorageUnmountedDialog();
 
         if (mMonitor != null) {
             mMonitor.stop();
             mMonitor = null;
+        }
+
+        if (mExternalStorageUnmountedSoundPool != null) {
+            mExternalStorageUnmountedSoundPool.release();
+            mExternalStorageUnmountedSoundPool = null;
         }
 
         mClientMessengers.forEach(this::notifyMonitorStopped);
@@ -205,6 +218,7 @@ public class MonitorService extends Service {
                 .setCancelable(false)
                 .setOnDismissListener(dialog -> {
                     mExternalStorageUnmountedDialog = null;
+                    pauseExternalStorageUnmountedSound();
                     if (Constants.EXTERNAL_STORAGE_STATE_UNMOUNTED.equals(mExternalStorageState)) {
                         mMainHandler.postDelayed(mShowExternalStorageUnmountedDialogRunnable, ALERT_INTERVAL_MS);
                     }
@@ -213,6 +227,7 @@ public class MonitorService extends Service {
             mExternalStorageUnmountedDialog.getWindow().setType(Build.VERSION.SDK_INT < Build.VERSION_CODES.O
                 ? WindowManager.LayoutParams.TYPE_SYSTEM_ALERT : WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY);
             mExternalStorageUnmountedDialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
+            mExternalStorageUnmountedDialog.setOnShowListener(dialog -> playExternalStorageUnmountedSound());
         }
 
         if (!mExternalStorageUnmountedDialog.isShowing()) {
@@ -224,6 +239,36 @@ public class MonitorService extends Service {
         if (mExternalStorageUnmountedDialog != null) {
             mExternalStorageUnmountedDialog.dismiss();
             mExternalStorageUnmountedDialog = null;
+        }
+    }
+
+    private void playExternalStorageUnmountedSound() {
+        if (mExternalStorageUnmountedSoundPool == null) {
+            mExternalStorageUnmountedSoundPool = new SoundPool.Builder()
+                .setMaxStreams(1)
+                .setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build())
+                .build();
+            mExternalStorageUnmountedSoundPool.setOnLoadCompleteListener((soundPool, sampleId, status) -> {
+                if (mExternalStorageUnmountedSoundPool == soundPool && mExternalStorageUnmountedDialog != null
+                    && mExternalStorageUnmountedDialog.isShowing() && status == 0) {
+                    mExternalStorageUnmountedSoundPool.play(sampleId, 1.0f, 1.0f, 0, 0, 1.0f);
+                }
+            });
+            mExternalStorageUnmountedSoundId =
+                mExternalStorageUnmountedSoundPool.load(this, R.raw.external_storage_unmounted_alert, 1);
+        }
+
+        if (mExternalStorageUnmountedSoundId > 0) {
+            mExternalStorageUnmountedSoundPool.play(mExternalStorageUnmountedSoundId, 1.0f, 1.0f, 0, 0, 1.0f);
+        }
+    }
+
+    private void pauseExternalStorageUnmountedSound() {
+        if (mExternalStorageUnmountedSoundPool != null && mExternalStorageUnmountedSoundId > 0) {
+            mExternalStorageUnmountedSoundPool.pause(mExternalStorageUnmountedSoundId);
         }
     }
 
