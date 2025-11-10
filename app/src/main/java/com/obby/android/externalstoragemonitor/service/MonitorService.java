@@ -247,7 +247,7 @@ public class MonitorService extends Service {
             mExternalStorageUnmountedSoundPool = new SoundPool.Builder()
                 .setMaxStreams(1)
                 .setAudioAttributes(new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build())
                 .build();
